@@ -1,6 +1,6 @@
 /* $Header$ ver: 1.0  Author: Aaron.song  Created Date: 2017/8/21
    Name: orahr_org_api
-   File: D:\Song\Work\AI\8.Program\createType.sql
+   File: D:\Song\Github\Aaron24-song\oracle\oramail
    Description:  
    
    Modified History
