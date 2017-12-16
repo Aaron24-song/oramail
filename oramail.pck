@@ -141,6 +141,32 @@ create or replace package body oramail is
         utl_smtp.write_raw_data(conn,utl_raw.cast_to_raw(l_temp));
         writeOutput(l_temp);
       end if;
+      --
+      l_file_len := dbms_lob.getlength(f1.ccontents); 
+      if l_file_len > 0 then
+        l_temp := '';
+        l_temp := l_temp || crlf || '--' || boundary || crlf;
+        l_temp := l_temp ||  'Content-Type:' || f1.file_type || '; name="' || f1.file_name || '"' || crlf;
+        l_temp := l_temp ||  'Content-Transfer-Encoding: base64' || crlf;
+        --l_temp := l_temp ||  'Content-Description: ' || f1.file_name || crlf;
+        l_temp := l_temp ||  'Content-Disposition: attachment; filename="' || f1.file_name || '"' || crlf || crlf;
+        utl_smtp.write_raw_data(conn,utl_raw.cast_to_raw(l_temp));
+        writeOutput(l_temp);
+        --
+        l_offset := 1;
+        while l_offset < dbms_lob.getlength(f1.ccontents) loop 
+          l_temp := dbms_lob.substr(f1.ccontents,l_ammount,l_offset); 
+          l_offset := l_offset + l_ammount; 
+          l_ammount := least(57,dbms_lob.getlength(f1.ccontents) - l_ammount); 
+          --utl_smtp.write_raw_data(conn,utl_encode.base64_encode(l_temp));
+          --utl_smtp.write_raw_data(conn,l_temp);
+          utl_smtp.write_data(conn,l_temp);
+          writeOutput(l_temp);
+        end loop;
+        l_temp := crlf || crlf;
+        utl_smtp.write_raw_data(conn,utl_raw.cast_to_raw(l_temp));
+        writeOutput(l_temp);
+      end if;
     end loop;
   end;
   
@@ -206,7 +232,7 @@ create or replace package body oramail is
     l_temp := l_temp || 'From: '    || p_sender    || crlf;
     l_temp := l_temp || 'To: '      || p_recipient || crlf;
     l_temp := l_temp || 'Subject: ' || p_subject   || crlf;   
-    l_temp := l_temp || 'Date: '    || to_char(SYSDATE, 'dd Mon yyyy hh24:mi:ss') || crlf;
+    l_temp := l_temp || 'Date: '    || to_char(SYSDATE, 'dd Mon yyyy hh24:mi:ss', 'nls_date_language=''american''') || crlf;
     if p_cc is not null then
        l_temp := l_temp || 'CC: '   || p_recipient || crlf;
     end if;
@@ -287,10 +313,32 @@ create or replace package body oramail is
                 file_name      => filename
                ,file_type      => filetype
                ,contents       => empty_blob()
+               ,ccontents      => empty_clob()
                ,file_length    => 0
                );
     l_attach_row.contents := b_lob;
     l_attach_row.file_length := dbms_lob.getlength(b_lob);
+    attachments.extend;
+    attachments(attachments.last) := l_attach_row;
+  end;
+  --
+  procedure addAttachment(
+                c_lob             in clob
+               ,filename          in varchar2
+               ,filetype          in varchar2
+               )
+  is
+    l_attach_row  oraemailAttach_rec;
+  begin
+    l_attach_row := oraemailAttach_rec(
+                file_name      => filename
+               ,file_type      => filetype
+               ,contents       => empty_blob()
+               ,ccontents      => empty_clob()
+               ,file_length    => 0
+               );
+    l_attach_row.ccontents := c_lob;
+    l_attach_row.file_length := dbms_lob.getlength(c_lob);
     attachments.extend;
     attachments(attachments.last) := l_attach_row;
   end;
